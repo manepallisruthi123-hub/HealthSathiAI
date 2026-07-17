@@ -558,8 +558,6 @@ async function quickQuery(disease) {
 
 // ── Process query — calls backend ─────────────────────────
 async function processQuery(text, isVoice) {
-  // Try to call Flask backend
-  // If no backend running, use demo mode
   try {
     const res = await fetch(`${BACKEND_URL}/query`, {
       method: 'POST',
@@ -567,17 +565,38 @@ async function processQuery(text, isVoice) {
       body: JSON.stringify({text, lang: currentLang}),
       signal: AbortSignal.timeout(10000)
     });
-    const data = await res.json();
-    appendMsg('bot', data.answer, `${data.disease} (${(data.confidence*100).toFixed(1)}%)`);
 
-    // Speak answer
-    if (data.audio_b64) {
-      const audio = new Audio('data:audio/mp3;base64,' + data.audio_b64);
-      audio.play();
+    console.log("HTTP Status:", res.status);
+
+    if (!res.ok) {
+      throw new Error("Backend returned HTTP " + res.status);
     }
+
+    const data = await res.json();
+    console.log("Backend Response:", data);
+
+    const confidence = Number(data.confidence ?? 0);
+
+    appendMsg(
+      'bot',
+      data.answer || "No answer received from backend.",
+      `${data.disease || "Unknown"} (${(confidence*100).toFixed(1)}%)`
+    );
+
+    if (data.audio_b64) {
+      try {
+        const audio = new Audio('data:audio/mp3;base64,' + data.audio_b64);
+        await audio.play();
+      } catch(err) {
+        console.error("Audio playback error:", err);
+      }
+    }
+
   } catch(e) {
-    // DEMO MODE — works without backend
-    demoMode(text);
+    console.error("Backend Error:", e);
+    const ti = document.getElementById('typingIndicator');
+    if (ti) ti.remove();
+    appendMsg('system','❌ Backend error. Open F12 → Console to view the exact error.');
   }
 }
 
