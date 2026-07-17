@@ -8,3 +8,4 @@ scikit-learn
 sentencepiece
 safetensors
 torch
+openai-whisper
